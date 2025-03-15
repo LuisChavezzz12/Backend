@@ -22,7 +22,8 @@ app.use("/productos", productoRoutes);
 app.use("/auth", authRoutes);
 app.use("/usuarios", userRoutes);
 app.use("/nosotros", aboutRoutes);
-app.use("/contacto", mensajeRoutes); // ✅ Agregamos la ruta de mensajes
+app.use("/mensajes", mensajeRoutes); // ✅ Ahora los mensajes se envían a "/mensajes"
+
 
 // Ruta raíz de prueba
 app.get("/", (req, res) => {
