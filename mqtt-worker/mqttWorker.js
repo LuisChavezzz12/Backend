@@ -28,7 +28,6 @@ client.on("connect", () => {
 
 client.on("message", async (topic, message) => {
   const payload = message.toString();
-  console.log(`📥 MQTT -> ${topic}: ${payload}`);
 
   try {
     const { dispositivo, valor } = JSON.parse(payload);
@@ -59,7 +58,11 @@ client.on("message", async (topic, message) => {
         },
         { upsert: true, new: true }
       );
-      console.log(`✅ Mongo actualizado: ${campo} = ${valorNormalizado}`);
+
+      // ✅ Mostrar log solo si es actuador (menos spam)
+      if (esActuador) {
+        console.log(`✅ ${campo.toUpperCase()} actualizado: ${valorNormalizado}`);
+      }
     }
   } catch (err) {
     console.error("❌ Error al guardar en MongoDB:", err.message);
