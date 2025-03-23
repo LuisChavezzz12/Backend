@@ -16,13 +16,17 @@ client.on("connect", () => {
 });
 
 router.post("/enviar", (req, res) => {
-  const { topic, dispositivo, valor } = req.body;
+  const { topic, dispositivo, valor, accion } = req.body;
 
-  if (!topic || !dispositivo || valor === undefined) {
+  if (!topic || !dispositivo || (valor === undefined && !accion)) {
     return res.status(400).json({ message: "❌ Faltan campos requeridos." });
   }
 
-  const payload = JSON.stringify({ dispositivo, valor });
+  const payload = JSON.stringify(
+    accion !== undefined
+      ? { dispositivo, accion }
+      : { dispositivo, valor }
+  );
 
   client.publish(topic, payload, {}, (err) => {
     if (err) {
