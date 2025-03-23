@@ -34,7 +34,7 @@ app.get("/", (req, res) => {
   res.send("Servidor en funcionamiento 🚀");
 });
 
-require("./config/mqttClient");
+//require("./config/mqttClient");
 
 // ❌ NO USAR `app.listen()` en Vercel
 module.exports = app;

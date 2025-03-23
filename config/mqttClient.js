@@ -1,57 +1,59 @@
-// config/mqttClient.js
-const mqtt = require('mqtt');
-const EstadoActual = require('../models/EstadoActual');
+const mqtt = require("mqtt");
+const EstadoActual = require("../models/EstadoActual");
 
 const options = {
-  clientId: 'backend_' + Math.random().toString(16).slice(2, 10),
+  clientId: "backend_" + Math.random().toString(16).slice(2, 10),
   username: process.env.MQTT_USER,
   password: process.env.MQTT_PASS,
   reconnectPeriod: 2000,
 };
 
-const client = mqtt.connect('wss://fa9707a6.ala.us-east-1.emqxsl.com:8084/mqtt', options);
+const client = mqtt.connect(
+  "wss://fa9707a6.ala.us-east-1.emqxsl.com:8084/mqtt",
+  options
+);
 
-client.on('connect', () => {
-  console.log('✅ Backend conectado a EMQX Cloud');
-  client.subscribe('esp32/#'); // suscribirse a todos los topics del ESP32
+client.on("connect", () => {
+  console.log("✅ Backend conectado a EMQX Cloud");
+  client.subscribe("esp32/#");
 });
 
-client.on('message', async (topic, message) => {
+client.on("message", async (topic, message) => {
   const payload = message.toString();
   console.log(`📥 MQTT -> ${topic}: ${payload}`);
 
   try {
     const { dispositivo, valor } = JSON.parse(payload);
-    const parts = topic.split('/');
-    const campo = parts[1];
-    const isControlTopic = parts[2] === 'control';
+    const parts = topic.split("/");
+    const campo = parts[1]; // reproductor, carrusel, nema, etc.
 
-    if (!dispositivo || !campo) return;
+    // Solo guardar si viene de 'cuna_unica'
+    if (dispositivo !== "cuna_unica") return;
 
-    const valorNormalizado = isControlTopic ? Number(valor) : valor;
-    const esActuador = ['reproductor', 'carrusel', 'nema'].includes(campo);
+    // Validar si es sensor o actuador (pero sin importar si es de control o no)
+    const camposPermitidos = [
+      "temperatura", "humedad", "sonido",
+      "reproductor", "carrusel", "nema"
+    ];
+    if (!camposPermitidos.includes(campo)) return;
 
-    // Solo guardar sensores normales o comandos de actuadores
-    if ((isControlTopic && esActuador) || (!isControlTopic && !esActuador)) {
-      const actualizacion = {
-        [campo]: valorNormalizado,
-        fecha: new Date()
-      };
+    const actualizacion = {
+      [campo]: Number(valor), // convierte a número 0 o 1
+      fecha: new Date(),
+    };
 
-      const result = await EstadoActual.findOneAndUpdate(
-        { dispositivo },
-        {
-          $set: actualizacion,
-          $setOnInsert: { dispositivo }
-        },
-        { upsert: true, new: true }
-      );
+    await EstadoActual.findOneAndUpdate(
+      { dispositivo: "cuna_unica" },
+      {
+        $set: actualizacion,
+        $setOnInsert: { dispositivo: "cuna_unica" },
+      },
+      { upsert: true, new: true }
+    );
 
-      console.log(`✅ Mongo actualizado: ${dispositivo}.${campo} = ${valorNormalizado}`);
-    }
-
+    console.log(`✅ Mongo actualizado: ${campo} = ${valor}`);
   } catch (err) {
-    console.error('❌ Error al guardar en MongoDB:', err.message);
+    console.error("❌ Error al guardar en MongoDB:", err.message);
   }
 });
 
