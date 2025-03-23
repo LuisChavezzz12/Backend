@@ -1,4 +1,4 @@
-// mqttWorker.js
+// config/mqttClient.js
 require("dotenv").config();
 const mongoose = require("mongoose");
 const mqtt = require("mqtt");
@@ -28,12 +28,14 @@ client.on("connect", () => {
 
 client.on("message", async (topic, message) => {
   const payload = message.toString();
+  console.log(`📥 MQTT -> ${topic}: ${payload}`);
 
   try {
-    const { dispositivo, valor } = JSON.parse(payload);
+    const { dispositivo, valor, accion } = JSON.parse(payload);
     const parts = topic.split("/");
     const campo = parts[1];
     const isControlTopic = parts[2] === "control";
+    const isComandoTopic = parts[2] === "comando";
 
     if (!dispositivo || !campo) return;
     if (dispositivo !== "cuna_unica") return;
@@ -41,9 +43,13 @@ client.on("message", async (topic, message) => {
     const valorNormalizado = isControlTopic ? Number(valor) : valor;
     const esActuador = ["reproductor", "carrusel", "nema"].includes(campo);
 
-    const actualizacion = {
-      fecha: new Date(),
-    };
+    const actualizacion = { fecha: new Date() };
+
+    // Si es un comando del reproductor, no se actualiza en Mongo
+    if (isComandoTopic && campo === "reproductor") {
+      console.log(`🎵 Comando de reproductor recibido: ${accion}`);
+      return; // No guardar en Mongo
+    }
 
     if (esActuador || (!isControlTopic && !esActuador)) {
       actualizacion[campo] = valorNormalizado;
@@ -58,13 +64,11 @@ client.on("message", async (topic, message) => {
         },
         { upsert: true, new: true }
       );
-
-      // ✅ Mostrar log solo si es actuador (menos spam)
-      if (esActuador) {
-        console.log(`✅ ${campo.toUpperCase()} actualizado: ${valorNormalizado}`);
-      }
+      console.log(`✅ Mongo actualizado: ${campo} = ${valorNormalizado}`);
     }
   } catch (err) {
     console.error("❌ Error al guardar en MongoDB:", err.message);
   }
 });
+
+module.exports = client;
