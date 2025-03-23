@@ -1,44 +1,72 @@
 const Dispositivo = require("../models/Dispositivo");
-
+const EstadoActual = require("../models/EstadoActual");
 // ✅ Crear un nuevo dispositivo
 exports.crearDispositivo = async (req, res) => {
-  const { usuario, nombreProducto, nombreDispositivo, ipDispositivo, idProducto, estado } = req.body;
+  const { usuario, nombreProducto, nombreDispositivo, idProducto } = req.body;
+  // Si quieres dejar IP opcional, descomenta y maneja:
+  // const { ipDispositivo } = req.body;
 
   if (!usuario) {
-    return res.status(400).json({ message: "❌ Error: Se requiere un usuario." });
+    return res.status(400).json({ message: "❌ Se requiere un usuario." });
   }
 
   try {
+    // 1. Crear el dispositivo
     const nuevoDispositivo = new Dispositivo({
-      usuario, // ID del usuario
+      usuario,
       nombreProducto,
       nombreDispositivo,
-      ipDispositivo,
+      // ipDispositivo, // opcional
       idProducto,
-      estado: estado || "Online",
+      estado: "online", // Forzamos que esté online
     });
 
     await nuevoDispositivo.save();
-    res.status(201).json({ message: "✅ Dispositivo registrado exitosamente" });
+
+    // 2. Crear/Upsert en EstadoActual usando el _id del dispositivo
+    await EstadoActual.findOneAndUpdate(
+      { idDispositivo: nuevoDispositivo._id },
+      {
+        $setOnInsert: {
+          idDispositivo: nuevoDispositivo._id,
+          dispositivo: nombreDispositivo,
+        },
+        $set: {
+          fecha: new Date(),
+        },
+      },
+      { upsert: true, new: true }
+    );
+
+    res
+      .status(201)
+      .json({ message: "✅ Dispositivo registrado y EstadoActual creado." });
   } catch (error) {
     console.error("❌ Error al registrar dispositivo:", error);
     res.status(500).json({ message: "❌ Error al registrar dispositivo" });
   }
 };
 
+
 // ✅ Obtener dispositivos por ID de usuario desde la URL
 exports.obtenerDispositivos = async (req, res) => {
   const { idUsuario } = req.params; // Obtener userId de la URL
 
   if (!idUsuario) {
-    return res.status(400).json({ message: "❌ Se requiere un ID de usuario." });
+    return res
+      .status(400)
+      .json({ message: "❌ Se requiere un ID de usuario." });
   }
 
   try {
     const dispositivos = await Dispositivo.find({ usuario: idUsuario });
 
     if (dispositivos.length === 0) {
-      return res.status(404).json({ message: "❌ No hay dispositivos registrados para este usuario." });
+      return res
+        .status(404)
+        .json({
+          message: "❌ No hay dispositivos registrados para este usuario.",
+        });
     }
 
     res.json(dispositivos);
@@ -65,9 +93,9 @@ exports.obtenerDispositivo = async (req, res) => {
   }
 };
 
-// ✅ Actualizar nombre e IP de un dispositivo
+// ✅ Actualizar nombre de un dispositivo
 exports.actualizarDispositivo = async (req, res) => {
-  const { id } = req.params;
+  const { id } = req.params; // id del dispositivo en la colección Dispositivo
   const { nombreDispositivo, ipDispositivo } = req.body;
 
   try {
@@ -76,17 +104,31 @@ exports.actualizarDispositivo = async (req, res) => {
       return res.status(404).json({ message: "❌ Dispositivo no encontrado." });
     }
 
-    // Actualizar solo los campos enviados
+    // Actualizar el dispositivo
     if (nombreDispositivo) dispositivo.nombreDispositivo = nombreDispositivo;
     if (ipDispositivo) dispositivo.ipDispositivo = ipDispositivo;
-
     await dispositivo.save();
+
+    // Actualizar el documento de EstadoActual usando el idDispositivo
+    await EstadoActual.findOneAndUpdate(
+      { idDispositivo: dispositivo._id },
+      {
+        $set: {
+          dispositivo: dispositivo.nombreDispositivo,
+          ip: dispositivo.ipDispositivo,
+          fecha: new Date()
+        }
+      },
+      { new: true }
+    );
+
     res.json({ message: "✅ Dispositivo actualizado correctamente." });
   } catch (error) {
     console.error("❌ Error al actualizar el dispositivo:", error);
     res.status(500).json({ message: "❌ Error en el servidor." });
   }
 };
+
 
 // ✅ Eliminar un dispositivo
 exports.eliminarDispositivo = async (req, res) => {

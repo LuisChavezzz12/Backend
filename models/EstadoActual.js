@@ -2,7 +2,13 @@
 const mongoose = require("mongoose");
 
 const estadoActualSchema = new mongoose.Schema({
-  dispositivo: { type: String, required: true, unique: true },
+  idDispositivo: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: "Dispositivo", 
+    required: true, 
+    unique: true 
+  },
+  dispositivo: { type: String, required: true }, // nombre del dispositivo (configurado por el usuario)
   temperatura: Number,
   humedad: Number,
   sonido: Number,
