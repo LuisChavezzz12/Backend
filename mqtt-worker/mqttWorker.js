@@ -2,7 +2,7 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
 const mqtt = require("mqtt");
-const EstadoActual = require("./models/EstadoActual");
+const EstadoActual = require("../models/EstadoActual");
 
 const options = {
   clientId: "worker_" + Math.random().toString(16).slice(2, 10),
