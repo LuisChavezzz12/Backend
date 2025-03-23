@@ -10,6 +10,7 @@ const faqRoutes = require("./routes/faqRoutes");
 const contactoRoutes = require("./routes/contactoRoutes"); // 🚀 Importar la nueva ruta
 const dispositivosRoutes = require("./routes/dispositivosRoutes");
 const estadoRoutes = require("./routes/estadoRoutes");
+const mqttRoutes = require("./routes/mqttRoutes");
 const app = express();
 
 // Conectar a MongoDB Atlas
@@ -28,6 +29,7 @@ app.use("/faqs", faqRoutes);
 app.use("/contacto", contactoRoutes);
 app.use("/dispositivos", dispositivosRoutes);
 app.use("/estado", estadoRoutes);
+app.use("/mqtt", mqttRoutes);
 
 // Ruta raíz de prueba
 app.get("/", (req, res) => {
