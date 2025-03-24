@@ -3,8 +3,6 @@ const EstadoActual = require("../models/EstadoActual");
 // ✅ Crear un nuevo dispositivo
 exports.crearDispositivo = async (req, res) => {
   const { usuario, nombreProducto, nombreDispositivo, idProducto } = req.body;
-  // Si quieres dejar IP opcional, descomenta y maneja:
-  // const { ipDispositivo } = req.body;
 
   if (!usuario) {
     return res.status(400).json({ message: "❌ Se requiere un usuario." });
@@ -16,37 +14,22 @@ exports.crearDispositivo = async (req, res) => {
       usuario,
       nombreProducto,
       nombreDispositivo,
-      // ipDispositivo, // opcional
       idProducto,
       estado: "online", // Forzamos que esté online
     });
 
     await nuevoDispositivo.save();
 
-    // 2. Crear/Upsert en EstadoActual usando el _id del dispositivo
-    await EstadoActual.findOneAndUpdate(
-      { idDispositivo: nuevoDispositivo._id },
-      {
-        $setOnInsert: {
-          idDispositivo: nuevoDispositivo._id,
-          dispositivo: nombreDispositivo,
-        },
-        $set: {
-          fecha: new Date(),
-        },
-      },
-      { upsert: true, new: true }
-    );
+    // ✅ Ya no usamos EstadoActual aquí
 
     res
       .status(201)
-      .json({ message: "✅ Dispositivo registrado y EstadoActual creado." });
+      .json({ message: "✅ Dispositivo registrado correctamente." });
   } catch (error) {
     console.error("❌ Error al registrar dispositivo:", error);
     res.status(500).json({ message: "❌ Error al registrar dispositivo" });
   }
 };
-
 
 // ✅ Obtener dispositivos por ID de usuario desde la URL
 exports.obtenerDispositivos = async (req, res) => {
@@ -62,11 +45,9 @@ exports.obtenerDispositivos = async (req, res) => {
     const dispositivos = await Dispositivo.find({ usuario: idUsuario });
 
     if (dispositivos.length === 0) {
-      return res
-        .status(404)
-        .json({
-          message: "❌ No hay dispositivos registrados para este usuario.",
-        });
+      return res.status(404).json({
+        message: "❌ No hay dispositivos registrados para este usuario.",
+      });
     }
 
     res.json(dispositivos);
@@ -116,8 +97,8 @@ exports.actualizarDispositivo = async (req, res) => {
         $set: {
           dispositivo: dispositivo.nombreDispositivo,
           ip: dispositivo.ipDispositivo,
-          fecha: new Date()
-        }
+          fecha: new Date(),
+        },
       },
       { new: true }
     );
@@ -128,7 +109,6 @@ exports.actualizarDispositivo = async (req, res) => {
     res.status(500).json({ message: "❌ Error en el servidor." });
   }
 };
-
 
 // ✅ Eliminar un dispositivo
 exports.eliminarDispositivo = async (req, res) => {

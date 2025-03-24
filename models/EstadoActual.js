@@ -6,7 +6,6 @@ const estadoActualSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId, 
     ref: "Dispositivo", 
     required: true, 
-    unique: true 
   },
   dispositivo: { type: String, required: true }, // nombre del dispositivo (configurado por el usuario)
   temperatura: Number,

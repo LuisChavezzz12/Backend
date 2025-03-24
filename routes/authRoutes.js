@@ -68,12 +68,10 @@ router.post("/registro", async (req, res) => {
     res.status(201).json({ token });
   } catch (error) {
     console.error("Error al registrar el usuario:", error);
-    res
-      .status(500)
-      .json({
-        message: "Error al registrar el usuario.",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "Error al registrar el usuario.",
+      error: error.message,
+    });
   }
 });
 
@@ -124,28 +122,42 @@ router.get("/perfil", verificarUsuario, async (req, res) => {
   }
 });
 
+// ✅ RUTA CORREGIDA: PUT /auth/perfil
+// ✅ /auth/perfil
 router.put("/perfil", verificarUsuario, async (req, res) => {
   try {
-    const { username, email, phone } = req.body;
+    const {
+      username,
+      email,
+      phone,
+      secretQuestion,
+      secretAnswer,
+      password, // opcional
+    } = req.body;
 
-    // Buscar usuario por ID sin aplicar validaciones a campos que no estamos modificando
     const usuario = await User.findById(req.usuario.userId);
     if (!usuario) {
       return res.status(404).json({ message: "❌ Usuario no encontrado" });
     }
 
-    // Validaciones básicas
-    if (!username && !email && !phone) {
-      return res
-        .status(400)
-        .json({
-          message: "❌ Debes enviar al menos un campo para actualizar.",
-        });
+    // Validación y asignación de cada campo
+    if (username) usuario.username = username;
+
+    if (email) {
+      const emailExiste = await User.findOne({
+        email,
+        _id: { $ne: usuario._id }, // evitar colisión con su propio email
+      });
+      if (emailExiste) {
+        return res
+          .status(400)
+          .json({
+            message: "❌ Este correo ya está registrado por otro usuario.",
+          });
+      }
+      usuario.email = email;
     }
 
-    // Actualizar solo los campos enviados
-    if (username) usuario.username = username;
-    if (email) usuario.email = email;
     if (phone) {
       if (!/^\d{10}$/.test(phone)) {
         return res
@@ -157,7 +169,20 @@ router.put("/perfil", verificarUsuario, async (req, res) => {
       usuario.phone = phone;
     }
 
-    // Guardar sin aplicar validaciones en otros campos no enviados
+    if (secretQuestion) usuario.secretQuestion = secretQuestion;
+    if (secretAnswer) usuario.secretAnswer = secretAnswer;
+
+    if (password) {
+      if (password.length < 6) {
+        return res
+          .status(400)
+          .json({
+            message: "❌ La contraseña debe tener al menos 6 caracteres.",
+          });
+      }
+      usuario.password = password; // 🔐 se encripta con el pre('save')
+    }
+
     await usuario.save({ validateModifiedOnly: true });
 
     res.json({ message: "✅ Perfil actualizado correctamente", usuario });
@@ -165,7 +190,10 @@ router.put("/perfil", verificarUsuario, async (req, res) => {
     console.error("❌ Error al actualizar perfil:", error);
     res
       .status(500)
-      .json({ message: "❌ Error en el servidor", error: error.message });
+      .json({
+        message: "❌ Error al actualizar el perfil",
+        error: error.message,
+      });
   }
 });
 
@@ -249,6 +277,46 @@ router.post("/restablecer-contrasena", async (req, res) => {
   } catch (error) {
     console.error("Error al restablecer contraseña:", error);
     res.status(500).json({ message: "❌ Error en el servidor" });
+  }
+});
+
+// ✅ Ruta para cambiar contraseña (requiere contraseña actual)
+router.put("/cambiar-contrasena", verificarUsuario, async (req, res) => {
+  const { actual, nueva } = req.body;
+
+  try {
+    const usuario = await User.findById(req.usuario.userId);
+    if (!usuario) {
+      return res.status(404).json({ message: "❌ Usuario no encontrado" });
+    }
+
+    const coincide = await usuario.comparePassword(actual);
+    if (!coincide) {
+      return res
+        .status(400)
+        .json({ message: "❌ Contraseña actual incorrecta" });
+    }
+
+    if (actual === nueva) {
+      return res
+        .status(400)
+        .json({
+          message: "❌ La nueva contraseña no puede ser igual a la actual",
+        });
+    }
+
+    usuario.password = nueva; // ✅ el pre('save') ya la encripta
+    await usuario.save();
+
+    res.json({ message: "✅ Contraseña actualizada correctamente" });
+  } catch (error) {
+    console.error("❌ Error al cambiar contraseña:", error);
+    res
+      .status(500)
+      .json({
+        message: "❌ Error al cambiar contraseña",
+        error: error.message,
+      });
   }
 });
 
