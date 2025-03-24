@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const jwt = require("jsonwebtoken");
 
 // Obtener todos los usuarios
 exports.obtenerUsuarios = async (req, res) => {
@@ -6,12 +7,10 @@ exports.obtenerUsuarios = async (req, res) => {
     const usuarios = await User.find(); // Obtener todos los usuarios
     res.json(usuarios);
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "❌ Error al obtener los usuarios",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "❌ Error al obtener los usuarios",
+      error: error.message,
+    });
   }
 };
 
@@ -25,24 +24,22 @@ exports.obtenerUsuarioPorId = async (req, res) => {
     }
     res.json(usuario);
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "❌ Error al obtener el usuario",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "❌ Error al obtener el usuario",
+      error: error.message,
+    });
   }
 };
 
 // Función para agregar un nuevo usuario
-// Función para agregar un nuevo usuario con validaciones
+// 👉 Agregar nuevo usuario con validaciones y token
 exports.agregarUsuario = async (req, res) => {
   try {
     console.log("Datos recibidos en req.body:", req.body);
     const { username, email, phone, password, secretQuestion, secretAnswer } =
       req.body;
 
-    // 🔹 Validar que todos los campos obligatorios estén presentes
+    // 🛑 Validar campos obligatorios
     if (
       !username ||
       !email ||
@@ -56,22 +53,30 @@ exports.agregarUsuario = async (req, res) => {
         .json({ message: "❌ Todos los campos son obligatorios." });
     }
 
-    // 🔹 Validar si el email ya está registrado
+    // 🔎 Verificar si ya existe el correo
     const emailExistente = await User.findOne({ email });
     if (emailExistente) {
       return res
         .status(400)
-        .json({ message: "❌ Este correo electrónico ya está registrado." });
+        .json({ message: "❌ Este correo ya está registrado." });
     }
 
-    // 🔹 Validar el número de teléfono (exactamente 10 dígitos)
+    // 🔎 Verificar si ya existe el nombre de usuario
+    const usernameExistente = await User.findOne({ username });
+    if (usernameExistente) {
+      return res
+        .status(400)
+        .json({ message: "❌ Este nombre de usuario ya está en uso." });
+    }
+
+    // ☎️ Validar teléfono (10 dígitos)
     if (!/^\d{10}$/.test(phone)) {
       return res
         .status(400)
         .json({ message: "❌ El teléfono debe tener exactamente 10 dígitos." });
     }
 
-    // 🔹 Crear y guardar el nuevo usuario
+    // 🆕 Crear y guardar usuario
     const nuevoUsuario = new User({
       username,
       email,
@@ -82,23 +87,27 @@ exports.agregarUsuario = async (req, res) => {
     });
 
     await nuevoUsuario.save();
-    res
-      .status(201)
-      .json({
-        message: "✅ Usuario registrado correctamente",
-        usuario: nuevoUsuario,
-      });
+
+    // 🔐 Generar token JWT
+    const token = jwt.sign(
+      { userId: nuevoUsuario._id, role: nuevoUsuario.role },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+
+    // ✅ Enviar respuesta
+    res.status(201).json({
+      message: "✅ Usuario registrado correctamente",
+      token,
+    });
   } catch (error) {
     console.error("❌ Error en el backend:", error);
-    res
-      .status(500)
-      .json({
-        message: "❌ Error al registrar el usuario",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "❌ Error al registrar el usuario",
+      error: error.message,
+    });
   }
 };
-
 // Actualizar un usuario por su ID
 exports.actualizarUsuario = async (req, res) => {
   const { id } = req.params;
@@ -144,11 +153,9 @@ exports.eliminarUsuario = async (req, res) => {
     await User.deleteOne({ _id: id });
     res.json({ message: "✅ Usuario eliminado correctamente" });
   } catch (error) {
-    res
-      .status(500)
-      .json({
-        message: "❌ Error al eliminar el usuario",
-        error: error.message,
-      });
+    res.status(500).json({
+      message: "❌ Error al eliminar el usuario",
+      error: error.message,
+    });
   }
 };
